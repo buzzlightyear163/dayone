@@ -730,6 +730,14 @@ a.tr:hover {
 .score {
   overflow: hidden;
 }
+.score-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px 10px 10px;
+  border-bottom: 1px solid var(--line);
+}
 .sr {
   display: grid;
   grid-template-columns: minmax(200px, 2fr) 90px 100px 110px 110px 150px;

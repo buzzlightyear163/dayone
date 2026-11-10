@@ -71,6 +71,7 @@ export interface ScoreRow extends Marks {
   graduatedMins: number;
   vol1h: number;
   source: 'seed' | 'engine';
+  decision?: string;
 }
 
 export interface Scoreboard {

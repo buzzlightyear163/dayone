@@ -456,12 +456,17 @@ export const SEEDS = [
 const seedCache = new Map(); // mint -> settled row (48 h passed)
 
 async function gtHours(pair, beforeSec) {
-  try {
-    const d = await get(`${API.gt}${pair}/ohlcv/hour?aggregate=1&limit=60&currency=token&before_timestamp=${beforeSec}`, 1);
-    return (d && d.attributes && d.attributes.ohlcv_list) || [];
-  } catch {
-    return [];
+  for (let i = 0; i < 3; i++) {
+    try {
+      const d = await get(`${API.gt}${pair}/ohlcv/hour?aggregate=1&limit=60&currency=token&before_timestamp=${beforeSec}`, 0);
+      const list = (d && d.attributes && d.attributes.ohlcv_list) || [];
+      if (list.length) return list;
+    } catch {
+      /* rate limited: wait and retry */
+    }
+    await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
   }
+  return [];
 }
 
 export async function buildScoreboard({ now = Date.now() } = {}) {
@@ -485,11 +490,19 @@ export async function buildScoreboard({ now = Date.now() } = {}) {
       const pair = (Array.isArray(pairs) ? pairs : [])
         .filter((p) => p.baseToken && p.baseToken.address === seed.mint && p.dexId === 'raydium' && p.quoteToken.address === WSOL)
         .sort((a, b) => ((b.liquidity && b.liquidity.usd) || 0) - ((a.liquidity && a.liquidity.usd) || 0))[0];
-      if (pair && (tk.finishingRate || 0) >= 100) {
+      const graduated = (tk.finishingRate || 0) >= 100;
+      let afterGrad = 0;
+      if (pair && graduated) {
         const candles = await gtHours(pair.pairAddress, t0 + 50 * HOUR);
-        for (const c of candles) if (c[0] + HOUR > lastCurve) obs.push([c[0] + HOUR, c[4], c[2]]);
+        for (const c of candles)
+          if (c[0] + HOUR > lastCurve) {
+            obs.push([c[0] + HOUR, c[4], c[2]]);
+            afterGrad++;
+          }
         obs.sort((a, b) => a[0] - b[0]);
       }
+      // graduated but no pool data yet: the marks after graduation are unknown, not flat
+      const blind = graduated && !afterGrad;
       const vol1h = trades.filter((t) => t.blockTime <= t0 + HOUR).reduce((s, t) => s + t.amountB, 0);
       const row = {
         ...seed,
@@ -503,7 +516,11 @@ export async function buildScoreboard({ now = Date.now() } = {}) {
         source: 'seed',
         ...dayMarks(obs, t0, nowSec),
       };
-      if (nowSec < t0 + 50 * HOUR) row.cacheUntil = now + 5 * 60e3;
+      if (blind) {
+        if (lastCurve < t0 + HOUR) row.day1 = null;
+        if (lastCurve < t0 + 24 * HOUR) row.day2 = null;
+      }
+      if (blind || nowSec < t0 + 50 * HOUR) row.cacheUntil = now + 5 * 60e3;
       seedCache.set(seed.mint, row);
     });
   }

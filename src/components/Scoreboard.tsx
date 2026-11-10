@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Board, ScoreRow, Scoreboard as ScoreboardT } from '../types';
 import { day, pct, sol } from '../lib/format';
 import { Logo } from './Logo';
@@ -23,6 +24,7 @@ function fromBoard(board: Board | null, now: number): ScoreRow[] {
       graduatedMins: 0,
       vol1h: r.vol1h,
       source: 'engine' as const,
+      decision: r.status,
     }));
 }
 
@@ -55,10 +57,13 @@ function Pct({ v, live }: { v: number | null; live: boolean }) {
 }
 
 export function Scoreboard({ data, board, now }: { data: ScoreboardT | null; board: Board | null; now: number }) {
+  const [view, setView] = useState<'passed' | 'all'>('passed');
   const seen = new Set<string>();
-  const rows = [...(data?.rows ?? []), ...fromBoard(board, now)]
+  const everything = [...(data?.rows ?? []), ...fromBoard(board, now)]
     .filter((r) => (seen.has(r.mint) ? false : (seen.add(r.mint), true)))
     .sort((a, b) => b.createdAt - a.createdAt);
+  const passed = everything.filter((r) => r.source === 'seed' || r.decision === 'passed');
+  const rows = view === 'passed' ? passed : everything;
 
   const settled1 = rows.filter((r) => r.day1 !== null && !r.day1Live);
   const settled2 = rows.filter((r) => r.day2 !== null && !r.day2Live);
@@ -95,6 +100,19 @@ export function Scoreboard({ data, board, now }: { data: ScoreboardT | null; boa
       </div>
 
       <div className="panel score">
+        <div className="score-tabs">
+          <div className="tabs" role="tablist">
+            <button role="tab" aria-selected={view === 'passed'} className={`tab ${view === 'passed' ? 'on' : ''}`} onClick={() => setView('passed')}>
+              Passed filter <span className="count">{passed.length}</span>
+            </button>
+            <button role="tab" aria-selected={view === 'all'} className={`tab ${view === 'all' ? 'on' : ''}`} onClick={() => setView('all')}>
+              All pads <span className="count">{everything.length}</span>
+            </button>
+          </div>
+          <span className="board-meta mono">
+            {view === 'passed' ? 'pads the engine would buy, plus pads tracked before it went live' : 'every new pad token, one day old or more'}
+          </span>
+        </div>
         <div className="sr sh" role="row">
           <span>Pad token</span>
           <span>Launched</span>
@@ -126,7 +144,7 @@ export function Scoreboard({ data, board, now }: { data: ScoreboardT | null; boa
               <span className="pad-txt">
                 <span className="pad-name">
                   ${r.symbol.toUpperCase()}
-                  {r.source === 'engine' && <em className="tag">engine</em>}
+                  <em className="tag">{r.source === 'seed' ? 'tracked' : r.decision === 'passed' ? 'passed' : 'skipped'}</em>
                 </span>
                 <span className="pad-sub mono">{r.domain}</span>
               </span>
