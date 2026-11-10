@@ -109,23 +109,23 @@ export function findPads(rows, known = new Set(), windowStartMs = 0) {
     const pi = r.platformInfo || {};
     const d = host(pi.web || '');
     if (GENERIC.has(d) || known.has(d)) continue;
-    if (!byDomain.has(d)) byDomain.set(d, { domain: d, name: pi.name, img: pi.img, keys: new Set(), coins: [] });
+    if (!byDomain.has(d)) byDomain.set(d, { domain: d, names: new Set(), img: pi.img, keys: new Set(), coins: [] });
     const g = byDomain.get(d);
     g.keys.add(pi.pubKey);
+    if (norm(pi.name)) g.names.add(norm(pi.name)); // one pad can run several configs with different names
     g.coins.push(r);
   }
 
   const pads = [];
   for (const g of byDomain.values()) {
     g.coins.sort((a, b) => a.createAt - b.createAt);
-    const pn = norm(g.name);
     const label = norm(g.domain.split('.')[0]);
     const own = g.coins.filter((c) => {
       const w = host(c.website || '');
       if (w !== g.domain && !w.endsWith('.' + g.domain) && !g.domain.endsWith('.' + w)) return false;
       const n = norm(c.name);
       const s = norm(c.symbol);
-      return (pn && (n === pn || s === pn)) || (label.length > 2 && (n === label || s === label));
+      return g.names.has(n) || g.names.has(s) || (label.length > 2 && (n === label || s === label));
     });
     if (!own.length) continue;
     // relaunches happen: keep the one the market actually traded
@@ -135,8 +135,8 @@ export function findPads(rows, known = new Set(), windowStartMs = 0) {
     if (windowStartMs && token.createAt - windowStartMs < HOUR * 1000) continue; // can't prove it's new
     pads.push({
       domain: g.domain,
-      platform: (g.name || g.domain).replace(/\s*\d+(\.\d+)?\s*%$/, '').trim(),
-      platformImg: g.img || '',
+      platform: ((token.platformInfo && token.platformInfo.name) || g.domain).replace(/\s*\d+(\.\d+)?\s*%$/, '').trim(),
+      platformImg: (token.platformInfo && token.platformInfo.img) || g.img || '',
       configs: g.keys.size,
       coinsOnPad: g.coins.length,
       relaunches: own.length - 1,
