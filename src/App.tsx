@@ -1,4 +1,5 @@
 import { Board } from './components/Board';
+import { Intro } from './components/Intro';
 import { useBoard, useNow } from './lib/useBoard';
 import { buyUrl } from './config';
 
@@ -52,6 +53,8 @@ export default function App() {
 
         <Board board={board} source={source} now={now} />
       </main>
+
+      <Intro board={board} source={source} now={now} />
     </>
   );
 }

@@ -449,6 +449,202 @@ a.tr:hover {
   background: var(--panel-2);
 }
 
+/* ── intro dialog ────────────────────────────────── */
+.intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 8, 15, 0.78);
+  backdrop-filter: blur(3px);
+  animation: fade 0.2s ease-out;
+}
+.intro-box {
+  width: 100%;
+  max-width: 460px;
+  padding: 18px 20px 18px;
+  border-radius: 12px;
+  animation: rise 0.22s ease-out;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.intro-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.intro-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.intro-x {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.intro-x:hover {
+  color: var(--text);
+}
+.intro-box h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.intro-text {
+  margin: 8px 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.intro-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  font-size: 12.5px;
+}
+.intro-steps li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+.intro-steps li:last-child {
+  border-bottom: 0;
+}
+.intro-steps i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.intro-steps b {
+  font-weight: 500;
+  color: var(--dim);
+}
+.intro-steps .done {
+  color: var(--text);
+}
+.intro-steps .done i {
+  background: var(--up);
+}
+.intro-steps .done b {
+  color: var(--up);
+}
+.intro-steps .run {
+  color: var(--text);
+}
+.intro-steps .run i {
+  background: var(--accent);
+  animation: blink 1.2s ease-in-out infinite;
+}
+.intro-steps .run b {
+  color: var(--accent);
+}
+.intro-steps .fail i {
+  background: var(--down);
+}
+.intro-steps .fail b {
+  color: var(--down);
+}
+.intro-bar {
+  position: relative;
+  height: 3px;
+  margin: 14px 0 4px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.intro-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: slide 1.4s ease-in-out infinite;
+}
+.intro-bar.full span {
+  width: 100%;
+  left: 0;
+  background: var(--up);
+  animation: none;
+}
+.intro-bar.stop span {
+  display: none;
+}
+@keyframes slide {
+  from {
+    left: -30%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.intro-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.intro-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+}
+.intro-risk {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.4;
+}
+.intro-foot .btn {
+  flex: none;
+  cursor: pointer;
+  background: var(--panel-2);
+  color: var(--text);
+}
+.intro-foot .btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-backdrop,
+  .intro-box,
+  .intro-bar span,
+  .dot {
+    animation: none !important;
+  }
+}
+
 /* ── responsive ──────────────────────────────────── */
 @media (max-width: 1180px) {
   .tr {
@@ -535,4 +731,11 @@ a.tr:hover {
   .why {
     white-space: normal;
   }
+}
+
+.btn:focus-visible,
+.intro-x:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid rgba(159, 216, 255, 0.55);
+  outline-offset: 2px;
 }
