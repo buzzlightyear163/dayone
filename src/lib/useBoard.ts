@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Board } from '../types';
+import type { Board, Scoreboard } from '../types';
 
 type Source = 'loading' | 'live' | 'snapshot' | 'offline';
 
@@ -50,4 +50,28 @@ export function useNow(stepMs = 1000) {
     return () => clearInterval(id);
   }, [stepMs]);
   return now;
+}
+
+export function useScoreboard(intervalMs = 300_000) {
+  const [data, setData] = useState<Scoreboard | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/scoreboard');
+        if (!r.ok) return;
+        const s = (await r.json()) as Scoreboard;
+        if (alive && s.rows) setData(s);
+      } catch {
+        /* keep the last one */
+      }
+    };
+    load();
+    const id = setInterval(load, intervalMs);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [intervalMs]);
+  return data;
 }

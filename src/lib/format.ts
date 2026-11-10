@@ -43,3 +43,10 @@ export function ago(ms: number, now: number): string {
 }
 
 export const tone = (n: number) => (n > 0.5 ? 'up' : n < -0.5 ? 'down' : 'flat');
+
+export function day(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export const solscanTx = (sig: string) => `https://solscan.io/tx/${sig}`;
+export const solscanAccount = (a: string) => `https://solscan.io/account/${a}`;

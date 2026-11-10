@@ -44,6 +44,38 @@ export interface Row {
   complete: boolean;
   spark: number[];
   position: Position | null;
+  marks: Marks | null;
+}
+
+export interface Marks {
+  p1: number | null;
+  p24: number | null;
+  p48: number | null;
+  day1: number | null;
+  day2: number | null;
+  day1Live: boolean;
+  day2Live: boolean;
+  peak1: number | null;
+}
+
+export interface ScoreRow extends Marks {
+  symbol: string;
+  mint: string;
+  pad: string;
+  domain: string;
+  name: string;
+  logo: string;
+  poolId: string;
+  pair: string;
+  createdAt: number;
+  graduatedMins: number;
+  vol1h: number;
+  source: 'seed' | 'engine';
+}
+
+export interface Scoreboard {
+  updatedAt: number;
+  rows: ScoreRow[];
 }
 
 export interface Rules {

@@ -29,8 +29,11 @@ function pick(rows: Row[], tab: Tab, now: number): Row[] {
   }
 }
 
+const FOLD = 10;
+
 export function Board({ board, source, now }: { board: BoardT | null; source: string; now: number }) {
   const [tab, setTab] = useState<Tab>('today');
+  const [all, setAll] = useState(false);
   const rows = board?.rows ?? [];
   const counts = useMemo(
     () => Object.fromEntries(TABS.map((t) => [t.id, pick(rows, t.id, now).length])) as Record<Tab, number>,
@@ -38,7 +41,8 @@ export function Board({ board, source, now }: { board: BoardT | null; source: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [board, Math.floor(now / 60_000)],
   );
-  const list = pick(rows, tab, now);
+  const full = pick(rows, tab, now);
+  const list = all ? full : full.slice(0, FOLD);
   const r = board?.rules;
 
   return (
@@ -51,7 +55,10 @@ export function Board({ board, source, now }: { board: BoardT | null; source: st
               role="tab"
               aria-selected={tab === t.id}
               className={`tab ${tab === t.id ? 'on' : ''}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                setAll(false);
+              }}
             >
               {t.label}
               <span className="count">{board ? counts[t.id] : '–'}</span>
@@ -97,6 +104,11 @@ export function Board({ board, source, now }: { board: BoardT | null; source: st
         {list.map((row) => (
           <BoardRow key={row.poolId} row={row} now={now} rules={r!} />
         ))}
+        {full.length > FOLD && (
+          <button className="more" onClick={() => setAll(!all)}>
+            {all ? 'Show less' : `Show all ${full.length}`}
+          </button>
+        )}
       </div>
 
       {r && (

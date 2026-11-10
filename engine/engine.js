@@ -19,6 +19,8 @@ const API = {
   trades: 'https://launch-history-v1.raydium.io/trade?limit=100&poolId=',
   sol: 'https://api-v3.raydium.io/mint/price?mints=So11111111111111111111111111111111111111112',
   dex: 'https://api.dexscreener.com/tokens/v1/solana/',
+  byMints: 'https://launch-mint-v1.raydium.io/get/by/mints?ids=',
+  gt: 'https://api.geckoterminal.com/api/v2/networks/solana/pools/',
 };
 
 const SUPPLY = 1e9;
@@ -271,6 +273,38 @@ function spark(trades, t0, nowSec) {
   return out;
 }
 
+// day-one / day-two marks from a price series [[time, price, high?], ...] (SOL per token)
+// Day 1 = end of the first hour (when the engine has bought) -> 24 h. Day 2 = 24 h -> 48 h.
+export function dayMarks(obs, t0, nowSec) {
+  const at = (T) => {
+    let p = null;
+    for (const o of obs) {
+      if (o[0] <= T) p = o[1];
+      else break;
+    }
+    return p;
+  };
+  const last = obs.length ? obs[obs.length - 1][1] : null;
+  const p1 = nowSec >= t0 + HOUR ? at(t0 + HOUR) : null;
+  const done24 = nowSec >= t0 + 24 * HOUR;
+  const done48 = nowSec >= t0 + 48 * HOUR;
+  const p24 = done24 ? at(t0 + 24 * HOUR) : last;
+  const p48 = done48 ? at(t0 + 48 * HOUR) : last;
+  let peak = 0;
+  for (const o of obs) if (o[0] <= t0 + 24 * HOUR) peak = Math.max(peak, o[2] || o[1]);
+  const pct = (a, b) => (a && b ? (b / a - 1) * 100 : null);
+  return {
+    p1,
+    p24,
+    p48,
+    day1: pct(p1, p24),
+    day2: done24 ? pct(p24, p48) : null,
+    day1Live: !done24,
+    day2Live: done24 && !done48,
+    peak1: pct(p1, peak),
+  };
+}
+
 async function dexPrices(mints) {
   const map = new Map();
   for (let i = 0; i < mints.length; i += 30) {
@@ -321,7 +355,12 @@ export async function buildBoard({ hours = 50, rules = RULES, now = Date.now() }
       r.status = r.status === 'watching' ? 'watching' : 'skipped';
       r.reason = 'Too many trades to replay';
     }
-    const res = { ...r, complete, spark: spark(trades, t0, nowSec), trades: trades.length };
+    const obs = trades.filter((t) => t.amountA > 0).map((t) => [t.blockTime, px(t)]);
+    const graduatedAt = (tk.finishingRate || 0) >= 100 && obs.length ? obs[obs.length - 1][0] : 0;
+    const marks = dayMarks(obs, t0, nowSec);
+    // after graduation the curve stops trading; marks past that point are unknown here
+    if (graduatedAt && graduatedAt < t0 + 24 * HOUR) Object.assign(marks, { day1: null, day2: null });
+    const res = { ...r, complete, spark: spark(trades, t0, nowSec), trades: trades.length, marks };
     const settled = complete && (r.status === 'skipped' || (r.position && r.position.exit));
     if (settled) cache.set(tk.poolId, res);
     return res;
@@ -380,6 +419,7 @@ export async function buildBoard({ hours = 50, rules = RULES, now = Date.now() }
       complete: a.complete !== false,
       spark: a.spark || [],
       position: pos,
+      marks: a.marks || null,
     };
   });
 
@@ -401,4 +441,72 @@ export async function buildBoard({ hours = 50, rules = RULES, now = Date.now() }
     },
     rows: out,
   };
+}
+
+// ── Scoreboard: pad tokens we track from before the engine went live ──────────
+export const SEEDS = [
+  { symbol: 'FAIR', mint: 'FairDR2UmRqHxsVPdPcetePCjFaDqVYv3oQX9fcQTpTg', pad: 'LaunchFair', domain: 'launchfair.fun' },
+  { symbol: 'STOKE', mint: '5BeD1Uc3Rz2Eha5FqGEnVUpGRNRk8khkXLXQNxynPyTx', pad: 'Stoke', domain: 'usestoke.xyz' },
+  { symbol: 'CURVD', mint: 'AhMWqC77W2YUx6rPXtoju3N3L1pA89p5JvZxYWN3dHUf', pad: 'Curvd', domain: 'curvd.fun' },
+  { symbol: 'FLOAT', mint: 'Bv1a7cEj5aRnJQhMw4kRQqAFesMSd5LwcDnUzq52BMmr', pad: 'Float', domain: 'floatlaunch.xyz' },
+  { symbol: 'HIGH', mint: '7ymF66Z6VhgNiwadtVhjTtT6U7iQRpSxeiRrhfufhigh', pad: 'higher.fun', domain: 'higher.fun' },
+  { symbol: 'PEAK', mint: 'APLPiTjBWzwfZ5U1TBeqLF9XJ7dV7XKGe7j4BZhkDray', pad: 'Peak', domain: 'launchonpeak.fun' },
+];
+
+const seedCache = new Map(); // mint -> settled row (48 h passed)
+
+async function gtHours(pair, beforeSec) {
+  try {
+    const d = await get(`${API.gt}${pair}/ohlcv/hour?aggregate=1&limit=60&currency=token&before_timestamp=${beforeSec}`, 1);
+    return (d && d.attributes && d.attributes.ohlcv_list) || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function buildScoreboard({ now = Date.now() } = {}) {
+  const nowSec = now / 1000;
+  // rows for coins still inside their first 48 h are refreshed every few minutes
+  for (const [k, v] of seedCache) if (v.cacheUntil && v.cacheUntil < now) seedCache.delete(k);
+  const todo = SEEDS.filter((s) => !seedCache.has(s.mint));
+  if (todo.length) {
+    const [info, pairs] = await Promise.all([
+      get(API.byMints + todo.map((s) => s.mint).join(',')).then((d) => (d && d.rows) || d || []),
+      get(API.dex + todo.map((s) => s.mint).join(',')).catch(() => []),
+    ]);
+    await pool(todo, 3, async (seed) => {
+      const tk = info.find((r) => r.mint === seed.mint);
+      if (!tk) return;
+      const t0 = Math.floor(tk.createAt / 1000);
+      const { rows: trades } = await fetchTrades(tk.poolId, t0, 40, tk.supply || SUPPLY, tk.decimals || 6);
+      const obs = trades.filter((t) => t.amountA > 0).map((t) => [t.blockTime, px(t)]);
+      const lastCurve = obs.length ? obs[obs.length - 1][0] : t0;
+      // after graduation: hourly closes from the Raydium pool the coin migrated to
+      const pair = (Array.isArray(pairs) ? pairs : [])
+        .filter((p) => p.baseToken && p.baseToken.address === seed.mint && p.dexId === 'raydium' && p.quoteToken.address === WSOL)
+        .sort((a, b) => ((b.liquidity && b.liquidity.usd) || 0) - ((a.liquidity && a.liquidity.usd) || 0))[0];
+      if (pair && (tk.finishingRate || 0) >= 100) {
+        const candles = await gtHours(pair.pairAddress, t0 + 50 * HOUR);
+        for (const c of candles) if (c[0] + HOUR > lastCurve) obs.push([c[0] + HOUR, c[4], c[2]]);
+        obs.sort((a, b) => a[0] - b[0]);
+      }
+      const vol1h = trades.filter((t) => t.blockTime <= t0 + HOUR).reduce((s, t) => s + t.amountB, 0);
+      const row = {
+        ...seed,
+        name: tk.name.trim(),
+        logo: tk.imgUrl || '',
+        poolId: tk.poolId,
+        pair: pair ? pair.pairAddress : '',
+        createdAt: tk.createAt,
+        graduatedMins: Math.round((lastCurve - t0) / 60),
+        vol1h,
+        source: 'seed',
+        ...dayMarks(obs, t0, nowSec),
+      };
+      if (nowSec < t0 + 50 * HOUR) row.cacheUntil = now + 5 * 60e3;
+      seedCache.set(seed.mint, row);
+    });
+  }
+  const rows = SEEDS.map((s) => seedCache.get(s.mint)).filter(Boolean);
+  return { updatedAt: now, rows };
 }
