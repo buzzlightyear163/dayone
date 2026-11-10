@@ -459,25 +459,12 @@ a.tr:hover {
   padding: 20px;
   background: rgba(4, 8, 15, 0.78);
   backdrop-filter: blur(3px);
-  animation: fade 0.2s ease-out;
 }
 .intro-box {
   width: 100%;
   max-width: 460px;
   padding: 18px 20px 18px;
   border-radius: 12px;
-  animation: rise 0.22s ease-out;
-}
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
 }
 .intro-top {
   display: flex;
@@ -637,8 +624,6 @@ a.tr:hover {
   color: var(--accent-ink);
 }
 @media (prefers-reduced-motion: reduce) {
-  .intro-backdrop,
-  .intro-box,
   .intro-bar span,
   .dot {
     animation: none !important;
