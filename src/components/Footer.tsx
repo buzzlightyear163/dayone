@@ -1,3 +1,4 @@
+import { Mark } from './Mark';
 import { X_URL, buyUrl } from '../config';
 
 export function Footer() {
@@ -7,9 +8,7 @@ export function Footer() {
         <div className="f-top">
           <div className="f-brand">
             <span className="wordmark">
-              <span className="mark mono" aria-hidden>
-                D1
-              </span>
+              <Mark />
               DAYONE
             </span>
             <p>Buys every new launchpad on day one.</p>

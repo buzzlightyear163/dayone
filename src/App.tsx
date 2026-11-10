@@ -1,3 +1,4 @@
+import { Mark } from './components/Mark';
 import { Board } from './components/Board';
 import { Docs } from './components/Docs';
 import { Footer } from './components/Footer';
@@ -13,9 +14,7 @@ import { buyUrl } from './config';
 function Wordmark() {
   return (
     <a className="wordmark" href="#top" aria-label="DAYONE home">
-      <span className="mark mono" aria-hidden>
-        D1
-      </span>
+      <Mark />
       DAYONE
     </a>
   );

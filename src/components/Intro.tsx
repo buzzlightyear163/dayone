@@ -1,3 +1,4 @@
+import { Mark } from './Mark';
 import { useEffect, useRef, useState } from 'react';
 import type { Board } from '../types';
 
@@ -56,9 +57,7 @@ export function Intro({ board, source, now }: { board: Board | null; source: str
       >
         <div className="intro-top">
           <span className="intro-brand">
-            <span className="mark mono" aria-hidden>
-              D1
-            </span>
+            <Mark />
             DAYONE
           </span>
           <button className="intro-x" onClick={close} aria-label="Close">
