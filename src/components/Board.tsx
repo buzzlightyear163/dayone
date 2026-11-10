@@ -197,7 +197,7 @@ function Decision({ row, nowSec }: { row: Row; nowSec: number }) {
         <span className="chip watch">
           <i className="dot" /> Watching
         </span>
-        <span className="why mono">decides in {dur(left)}</span>
+        <span className="why mono">{left > 0 ? `decides in ${dur(left)}` : 'deciding…'}</span>
       </>
     );
   }

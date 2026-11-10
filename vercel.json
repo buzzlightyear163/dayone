@@ -3,5 +3,11 @@
   "installCommand": "npm install",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "functions": { "api/board.js": { "maxDuration": 60 } }
+  "functions": { "api/board.js": { "maxDuration": 60 } },
+  "images": {
+    "sizes": [64, 128],
+    "formats": ["image/webp"],
+    "minimumCacheTTL": 86400,
+    "remotePatterns": [{ "protocol": "https", "hostname": "**" }]
+  }
 }

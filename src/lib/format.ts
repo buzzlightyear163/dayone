@@ -43,8 +43,3 @@ export function ago(ms: number, now: number): string {
 }
 
 export const tone = (n: number) => (n > 0.5 ? 'up' : n < -0.5 ? 'down' : 'flat');
-
-export function img(url: string, size = 64): string {
-  if (!url) return '';
-  return `https://launch-img-proxy-v1.raydium.io/?fit=cover&w=${size}&h=${size}&url=${encodeURIComponent(url)}`;
-}
