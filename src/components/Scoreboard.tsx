@@ -82,8 +82,8 @@ export function Scoreboard({ data, board, now }: { data: ScoreboardT | null; boa
         <div>
           <h2>Scoreboard</h2>
           <p className="section-lede">
-            Every pad token we track. Day 1 runs from the end of its first hour, where the engine buys, to 24h. Day 2 is
-            the next 24h, where it sells.
+            Every pad token we track. Day 1 runs from the end of its first hour to 24h, day 2 is the next 24h. The
+            engine buys inside the first hour and sells on day two.
           </p>
         </div>
         <div className="head-stats mono">
