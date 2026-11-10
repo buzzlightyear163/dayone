@@ -444,86 +444,97 @@ export async function buildBoard({ hours = 50, rules = RULES, now = Date.now() }
 }
 
 // ── Scoreboard: pad tokens we track from before the engine went live ──────────
+// Prices are SOL per token. Marks that have already happened are stored here: they
+// never change, and the hourly history after graduation is rate-limited upstream.
+// p1 = end of first hour, p24 = 24 h, p48 = 48 h after launch. null = not reached yet.
 export const SEEDS = [
-  { symbol: 'FAIR', mint: 'FairDR2UmRqHxsVPdPcetePCjFaDqVYv3oQX9fcQTpTg', pad: 'LaunchFair', domain: 'launchfair.fun' },
-  { symbol: 'STOKE', mint: '5BeD1Uc3Rz2Eha5FqGEnVUpGRNRk8khkXLXQNxynPyTx', pad: 'Stoke', domain: 'usestoke.xyz' },
-  { symbol: 'CURVD', mint: 'AhMWqC77W2YUx6rPXtoju3N3L1pA89p5JvZxYWN3dHUf', pad: 'Curvd', domain: 'curvd.fun' },
-  { symbol: 'FLOAT', mint: 'Bv1a7cEj5aRnJQhMw4kRQqAFesMSd5LwcDnUzq52BMmr', pad: 'Float', domain: 'floatlaunch.xyz' },
-  { symbol: 'HIGH', mint: '7ymF66Z6VhgNiwadtVhjTtT6U7iQRpSxeiRrhfufhigh', pad: 'higher.fun', domain: 'higher.fun' },
-  { symbol: 'PEAK', mint: 'APLPiTjBWzwfZ5U1TBeqLF9XJ7dV7XKGe7j4BZhkDray', pad: 'Peak', domain: 'launchonpeak.fun' },
+  { symbol: 'FAIR', mint: 'FairDR2UmRqHxsVPdPcetePCjFaDqVYv3oQX9fcQTpTg', pad: 'LaunchFair', domain: 'launchfair.fun',
+    createdAt: 1794249132000, graduatedMins: 58, vol1h: 1144.3, known: { p1: 4.1023336193091134e-7, p24: null, p48: null } },
+  { symbol: 'STOKE', mint: '5BeD1Uc3Rz2Eha5FqGEnVUpGRNRk8khkXLXQNxynPyTx', pad: 'Stoke', domain: 'usestoke.xyz',
+    createdAt: 1794156295000, graduatedMins: 95, vol1h: 549.5, known: { p1: 1.6700476391468578e-7, p24: 1.4624725534315798e-6, p48: null } },
+  { symbol: 'CURVD', mint: 'AhMWqC77W2YUx6rPXtoju3N3L1pA89p5JvZxYWN3dHUf', pad: 'Curvd', domain: 'curvd.fun',
+    createdAt: 1794218028000, graduatedMins: 50, vol1h: 902.2, known: { p1: 4.130151656130251e-7, p24: 2.33218457095215e-7, p48: null } },
+  { symbol: 'FLOAT', mint: 'Bv1a7cEj5aRnJQhMw4kRQqAFesMSd5LwcDnUzq52BMmr', pad: 'Float', domain: 'floatlaunch.xyz',
+    createdAt: 1793224397000, graduatedMins: 22, vol1h: 1351.6, known: { p1: 1.4527245801206366e-6, p24: 8.25579257459822e-6, p48: 8.570292765139049e-6 } },
+  { symbol: 'HIGH', mint: '7ymF66Z6VhgNiwadtVhjTtT6U7iQRpSxeiRrhfufhigh', pad: 'higher.fun', domain: 'higher.fun',
+    createdAt: 1793725736000, graduatedMins: 5, vol1h: 172.3, known: { p1: 1.7852133143103597e-6, p24: 3.24164914127316e-6, p48: 2.5762650343899998e-5 } },
+  { symbol: 'PEAK', mint: 'APLPiTjBWzwfZ5U1TBeqLF9XJ7dV7XKGe7j4BZhkDray', pad: 'Peak', domain: 'launchonpeak.fun',
+    createdAt: 1793061845473, graduatedMins: 3, vol1h: 159.1, known: { p1: 5.183309290911519e-7, p24: 1.12731374043363e-6, p48: 1.2658492183563498e-6 } },
 ];
 
-const seedCache = new Map(); // mint -> settled row (48 h passed)
+const markCache = new Map(); // `${mint}:${hours}` -> price, filled from history once a mark has passed
 
-async function gtHours(pair, beforeSec) {
+async function gtCloseAt(pair, T) {
   for (let i = 0; i < 3; i++) {
     try {
-      const d = await get(`${API.gt}${pair}/ohlcv/hour?aggregate=1&limit=60&currency=token&before_timestamp=${beforeSec}`, 0);
-      const list = (d && d.attributes && d.attributes.ohlcv_list) || [];
-      if (list.length) return list;
+      const d = await get(`${API.gt}${pair}/ohlcv/hour?aggregate=1&limit=3&currency=token&before_timestamp=${T + HOUR}`, 0);
+      const list = ((d && d.attributes && d.attributes.ohlcv_list) || []).sort((a, b) => a[0] - b[0]);
+      const c = list.filter((x) => x[0] + HOUR <= T + HOUR).pop();
+      if (c) return c[4];
     } catch {
       /* rate limited: wait and retry */
     }
     await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
   }
-  return [];
+  return null;
 }
 
 export async function buildScoreboard({ now = Date.now() } = {}) {
   const nowSec = now / 1000;
-  // rows for coins still inside their first 48 h are refreshed every few minutes
-  for (const [k, v] of seedCache) if (v.cacheUntil && v.cacheUntil < now) seedCache.delete(k);
-  const todo = SEEDS.filter((s) => !seedCache.has(s.mint));
-  if (todo.length) {
-    const [info, pairs] = await Promise.all([
-      get(API.byMints + todo.map((s) => s.mint).join(',')).then((d) => (d && d.rows) || d || []),
-      get(API.dex + todo.map((s) => s.mint).join(',')).catch(() => []),
-    ]);
-    await pool(todo, 3, async (seed) => {
-      const tk = info.find((r) => r.mint === seed.mint);
-      if (!tk) return;
-      const t0 = Math.floor(tk.createAt / 1000);
-      const { rows: trades } = await fetchTrades(tk.poolId, t0, 40, tk.supply || SUPPLY, tk.decimals || 6);
-      const obs = trades.filter((t) => t.amountA > 0).map((t) => [t.blockTime, px(t)]);
-      const lastCurve = obs.length ? obs[obs.length - 1][0] : t0;
-      // after graduation: hourly closes from the Raydium pool the coin migrated to
-      const pair = (Array.isArray(pairs) ? pairs : [])
-        .filter((p) => p.baseToken && p.baseToken.address === seed.mint && p.dexId === 'raydium' && p.quoteToken.address === WSOL)
-        .sort((a, b) => ((b.liquidity && b.liquidity.usd) || 0) - ((a.liquidity && a.liquidity.usd) || 0))[0];
-      const graduated = (tk.finishingRate || 0) >= 100;
-      let afterGrad = 0;
-      if (pair && graduated) {
-        const candles = await gtHours(pair.pairAddress, t0 + 50 * HOUR);
-        for (const c of candles)
-          if (c[0] + HOUR > lastCurve) {
-            obs.push([c[0] + HOUR, c[4], c[2]]);
-            afterGrad++;
-          }
-        obs.sort((a, b) => a[0] - b[0]);
-      }
-      // graduated but no pool data yet: the marks after graduation are unknown, not flat
-      const blind = graduated && !afterGrad;
-      const vol1h = trades.filter((t) => t.blockTime <= t0 + HOUR).reduce((s, t) => s + t.amountB, 0);
-      const row = {
-        ...seed,
-        name: tk.name.trim(),
-        logo: tk.imgUrl || '',
-        poolId: tk.poolId,
-        pair: pair ? pair.pairAddress : '',
-        createdAt: tk.createAt,
-        graduatedMins: Math.round((lastCurve - t0) / 60),
-        vol1h,
-        source: 'seed',
-        ...dayMarks(obs, t0, nowSec),
-      };
-      if (blind) {
-        if (lastCurve < t0 + HOUR) row.day1 = null;
-        if (lastCurve < t0 + 24 * HOUR) row.day2 = null;
-      }
-      if (blind || nowSec < t0 + 50 * HOUR) row.cacheUntil = now + 5 * 60e3;
-      seedCache.set(seed.mint, row);
+  const mints = SEEDS.map((s) => s.mint).join(',');
+  const [info, pairs] = await Promise.all([
+    get(API.byMints + mints).then((d) => (d && d.rows) || d || []).catch(() => []),
+    get(API.dex + mints).catch(() => []),
+  ]);
+  const list = Array.isArray(pairs) ? pairs : [];
+
+  const rows = [];
+  for (const seed of SEEDS) {
+    const tk = info.find((r) => r.mint === seed.mint) || {};
+    const t0 = Math.floor(seed.createdAt / 1000);
+    const raydiumPairs = list
+      .filter((p) => p.baseToken && p.baseToken.address === seed.mint && p.dexId === 'raydium' && p.quoteToken.address === WSOL)
+      .sort((a, b) => ((b.liquidity && b.liquidity.usd) || 0) - ((a.liquidity && a.liquidity.usd) || 0));
+    const top = raydiumPairs[0];
+    const current = top ? Number(top.priceNative) || null : null;
+
+    const mark = async (key, hours) => {
+      if (seed.known[key] != null) return seed.known[key];
+      const T = t0 + hours * HOUR;
+      if (nowSec < T) return current; // still running: the live price
+      const ck = `${seed.mint}:${hours}`;
+      if (markCache.has(ck)) return markCache.get(ck);
+      const v = top ? await gtCloseAt(top.pairAddress, T) : null;
+      if (v != null) markCache.set(ck, v);
+      return v;
+    };
+    const p1 = await mark('p1', 1);
+    const p24 = await mark('p24', 24);
+    const p48 = nowSec >= t0 + 24 * HOUR ? await mark('p48', 48) : null;
+    const pct = (a, b) => (a && b ? (b / a - 1) * 100 : null);
+
+    rows.push({
+      symbol: seed.symbol,
+      mint: seed.mint,
+      pad: seed.pad,
+      domain: seed.domain,
+      name: (tk.name || seed.symbol).trim(),
+      logo: tk.imgUrl || '',
+      poolId: tk.poolId || '',
+      pair: top ? top.pairAddress : '',
+      createdAt: seed.createdAt,
+      graduatedMins: seed.graduatedMins,
+      vol1h: seed.vol1h,
+      source: 'seed',
+      p1,
+      p24,
+      p48,
+      day1: pct(p1, p24),
+      day2: nowSec >= t0 + 24 * HOUR ? pct(p24, p48) : null,
+      day1Live: nowSec < t0 + 24 * HOUR,
+      day2Live: nowSec >= t0 + 24 * HOUR && nowSec < t0 + 48 * HOUR,
+      peak1: null,
     });
   }
-  const rows = SEEDS.map((s) => seedCache.get(s.mint)).filter(Boolean);
   return { updatedAt: now, rows };
 }
