@@ -1,5 +1,6 @@
 import { Mark } from './components/Mark';
 import { Board } from './components/Board';
+import { CaChip } from './components/CaChip';
 import { Docs } from './components/Docs';
 import { Footer } from './components/Footer';
 import { Intro } from './components/Intro';
@@ -52,10 +53,13 @@ export default function App() {
             DAYONE watches Raydium LaunchLab for new launchpads, buys each pad's own token in its first hour and sells
             on day two. Profits buy back $DAYONE.
           </p>
-          <span className={`status ${live ? 'is-live' : ''}`}>
-            <i className="dot" />
-            {live ? 'Engine live · watching LaunchLab' : 'Engine paused · showing last snapshot'}
-          </span>
+          <div className="intro-row">
+            <span className={`status ${live ? 'is-live' : ''}`}>
+              <i className="dot" />
+              {live ? 'Engine live · watching LaunchLab' : 'Engine paused · showing last snapshot'}
+            </span>
+            <CaChip />
+          </div>
         </section>
 
         <Board board={board} source={source} now={now} />

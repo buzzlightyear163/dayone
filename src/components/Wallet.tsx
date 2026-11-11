@@ -4,7 +4,7 @@ import { solscanAccount } from '../lib/format';
 
 async function balance(addr: string): Promise<number | null> {
   try {
-    const r = await fetch('https://api.mainnet-beta.solana.com', {
+    const r = await fetch('https://solana-rpc.publicnode.com', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [addr] }),

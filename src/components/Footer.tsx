@@ -1,5 +1,5 @@
 import { Mark } from './Mark';
-import { X_URL, buyUrl } from '../config';
+import { CA, X_URL, buyUrl } from '../config';
 
 export function Footer() {
   return (
@@ -12,6 +12,7 @@ export function Footer() {
               DAYONE
             </span>
             <p>Buys every new launchpad on day one.</p>
+            {CA && <p className="f-ca mono">CA {CA}</p>}
           </div>
           <nav className="f-cols" aria-label="Footer">
             <div>

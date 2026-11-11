@@ -1173,6 +1173,79 @@ a.rc-tx:hover {
   }
 }
 
+/* ── contract address chip ───────────────────────── */
+.intro {
+  max-width: none;
+}
+.intro h1,
+.intro .lede {
+  max-width: 720px;
+}
+.intro-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 4px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12.5px;
+  min-width: 0;
+  max-width: 100%;
+}
+.ca-k {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ca-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+.ca-v {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  user-select: all;
+}
+.ca-btn {
+  flex: none;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.ca-btn:hover {
+  border-color: rgba(159, 216, 255, 0.45);
+}
+.ca-btn.buy {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 550;
+}
+.f-ca {
+  margin-top: 8px !important;
+  font-size: 12px !important;
+  color: var(--dim) !important;
+  word-break: break-all;
+  user-select: all;
+}
+
 /* ── responsive ──────────────────────────────────── */
 @media (max-width: 1180px) {
   .tr {
